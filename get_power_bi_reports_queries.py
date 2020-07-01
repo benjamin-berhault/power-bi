@@ -22,13 +22,8 @@ CREATE TABLE MY_SCHEMA_NAME.PowerBIReportQueries(
 GO
 ```
 
-Standalone execution
+Execution
 --------------------
-	# Load your Python environment
-	# Add to the PYTHONPATH variable the project root directory
-	export PYTHONPATH=$PYTHONPATH:$(pwd)
-	 
-	# Call the __main__ function to launch a standalone gradient boosting model training
 	python get_power_bi_reports_queries.py
 """
 
