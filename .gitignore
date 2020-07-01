@@ -1,4 +1,4 @@
-*.ipynb*
+*/*.ipynb
 .cache
 .local
 .env
