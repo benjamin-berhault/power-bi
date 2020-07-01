@@ -1,4 +1,5 @@
-"""Script to retrieve queries from Power BI Report Server
+"""Script to retrieve queries from Power BI Report Server,
+number of times the report was called for the current year
 and store this information in a SQL Server database such as
 
 ```sql
@@ -15,6 +16,7 @@ CREATE TABLE MY_SCHEMA_NAME.PowerBIReportQueries(
 	[Report name] [nvarchar](512) NOT NULL,
 	[Path] [nvarchar](512) NOT NULL,
 	[Queries] [varchar](max) NOT NULL,
+	[Calls] [int] NOT NULL,
 	[Loading date] [datetime2](0) NOT NULL CONSTRAINT C_Dim_PowerBIRapportRequetes_LoadingDate_GETDATE DEFAULT GETDATE(),
 	[Loading user] [varchar](128) NOT NULL CONSTRAINT C_Dim_PowerBIRapportRequetes_LoadingUser_SYSTEM_USER DEFAULT SYSTEM_USER
 ) ON [MY_SCHEMA_NAME]
@@ -108,8 +110,19 @@ if __name__ == '__main__':
     start_time = time()
     con_sqlinfobi = pyodbc.connect(PB_REPORT_SERVER_DB_CONNECTION_STRING)
     cur_sqlinfobi = con_sqlinfobi.cursor()
-    cur_sqlinfobi.execute("SELECT ItemID, Path, Name \
-      FROM " + POWER_BI_CATALOG_TABLE + " t  \
+    cur_sqlinfobi.execute("WITH execution_count As (SELECT  \
+	COUNT(*) As Count \
+    , ItemID \
+    FROM ReportServePowerbi.dbo.Catalog c WITH (NOLOCK)  \
+    LEFT JOIN [ReportServePowerbi].[dbo].[ExecutionLogStorage] e WITH (NOLOCK) \
+	ON c.ItemID = e.ReportID \
+    WHERE YEAR(TimeStart) = YEAR(GETDATE()) \
+    GROUP BY ItemID) \
+    \
+    SELECT t1.ItemID, Path, Name, ISNULL(Count,0) As Calls \
+    FROM " + POWER_BI_CATALOG_TABLE + " t1  \
+	  LEFT JOIN execution_count t2 \
+		ON t1.ItemID = t2.ItemID \
       WHERE Type = 13")
     print('Information retrieved', time_me(time() - start_time), "\n")
 
@@ -166,8 +179,8 @@ if __name__ == '__main__':
         con2_results_destination = pyodbc.connect(RESULTS_DESTINATION_CONNECTION_STRING)
         cur2_results_destination = con2_results_destination.cursor()   
                 
-        query = 'INSERT INTO ' + DESTINATION_TABLE + '([Item Id], [Report name] ,[Path], [Queries])  \
-        values(\''+row.ItemID+'\',\''+row.Name+'\',\''+folder+'\',\''+file_contents.replace("'"," ")+'\')'
+        query = 'INSERT INTO ' + DESTINATION_TABLE + '([Item Id], [Report name] ,[Path], [Queries], [Calls])  \
+        values(\''+row.ItemID+'\',\''+row.Name+'\',\''+folder+'\',\''+file_contents.replace("'"," ")+'\',\''+str(row.Calls)+'\')'
                 
         cur2_results_destination.execute(query)
         con2_results_destination.commit()
